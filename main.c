@@ -1,5 +1,3 @@
-#include <SDL3/SDL_oldnames.h>
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_stdinc.h>
@@ -70,22 +68,51 @@ fv3 cubeV[8] = {
 
 // Cube edges
 int cubeE[12][2] = {
-    {0, 1}, {1, 2}, {2, 3}, {3, 0}, // Bottom face
-    {4, 5}, {5, 6}, {6, 7}, {4, 7}, // Top face
-    {0, 4}, {1, 5}, {2, 6}, {3,7}   // Side lines
+    {0, 1}, {1, 3}, {3, 2}, {2, 0}, // Bottom face
+    {4, 5}, {5, 7}, {7, 6}, {6, 4}, // Top face
+    {0, 4}, {1, 5}, {2, 6}, {3, 7}   // Side lines
 };
 
-float FOV = 1.308997;
+float fov = 1.308997; // 75 degrees
+float focalLength = 0.63; // This gives us a screen length of about 1
 
 // Camera
 Camera camera = { {0.0, 0.0, -5.0}, 0.9162979  };
 // This rotation centers the camera for an FOV of 75 deg
 
-
 // My functions --------------------------------------------------------- //
 
-fv2 offsetToCenter(fv2 in) {
-    return (fv2) {in.x + SCREENWIDTH/2 , in.y + SCREENHEIGHT/2};
+// Convert the 3D points of mesh to 2d Points and render them
+fv3 vertexToWorld(fv3 vertex) {
+    // default transformations applied to everything (for now)
+    vertex.z += 5;
+    return vertex;
+}
+fv2 vertexToScreen(fv3 vertex) {
+
+    fv3 vertexWorld = vertexToWorld(vertex);
+
+    float screenHeightWorld = tan(fov / 2) * 2;
+    float pixelsPerWorldUnit = (float) SCREENHEIGHT / screenHeightWorld / vertexWorld.z;
+    
+    fv2 pixelOffset = {vertexWorld.x * pixelsPerWorldUnit, vertexWorld.y * pixelsPerWorldUnit};
+    pixelOffset.x += (float) SCREENWIDTH / 2;
+    pixelOffset.y += (float) SCREENHEIGHT / 2;
+    return pixelOffset;
+}
+
+void renderMesh(SDL_Renderer *renderer, fv3 *mesh, int meshSize, int (*edges)[2], int edgeCount){
+    fv2 mesh2D[meshSize];
+    for (int i = 0; i < meshSize; i++) {
+        // Vertext to Screen
+        mesh2D[i] = vertexToScreen(mesh[i]);
+    }
+    for (int i = 0; i < edgeCount; i++) {
+        fv2 lineStart = {mesh2D[edges[i][0]].x , mesh2D[edges[i][0]].y};
+        fv2 lineEnd = {mesh2D[edges[i][1]].x , mesh2D[edges[i][1]].y};
+        SDL_RenderLine(renderer, lineStart.x, lineStart.y, lineEnd.x, lineEnd.y);
+    }
+
 }
 
 // SDL Functions -------------------------------------------------------- //
@@ -149,6 +176,9 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
 
     // Render calls 
+
+    /* SDL_RenderPoint(renderer, 10, 10); */
+    renderMesh(renderer, cubeV, sizeof(cubeV), cubeE, 12);
 
 
 
