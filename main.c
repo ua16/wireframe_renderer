@@ -2,6 +2,7 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
+#include <stdlib.h>
 
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 
@@ -75,22 +76,58 @@ int cubeE[12][2] = {
 
 float fov = 1.308997; // 75 degrees
 float focalLength = 0.63; // This gives us a screen length of about 1
+static float moveAway = 5;
 
 // Camera
-Camera camera = { {0.0, 0.0, -5.0}, 0.9162979  };
-// This rotation centers the camera for an FOV of 75 deg
+Camera camera = { {0.0, 0.0, -5.0}, 0 };
+
+// Obj loading stuff
+
+typedef struct {
+    int vCount;
+    fv3 *v; // Pointer to the beginning of the array of vertices
+    int eCount; // No. of edges * 2
+    int *e; // Like above for the array of edges
+} Obj3D;
+
+Obj3D* createTestCube() {
+    Obj3D* newObj = malloc(sizeof(Obj3D));
+
+    newObj->vCount = 8;
+    newObj->v = malloc(sizeof(fv3)*8);
+    for (int i = 0; i < 8; i++) {
+        newObj->v[i] = cubeV[i];
+    }
+
+    newObj->eCount = 24;
+    newObj->e = malloc(sizeof(int)*24);
+    for (int i = 0; i < 12; i++){
+        newObj->e[i*2] = cubeE[i][0]; 
+        newObj->e[i*2+1] = cubeE[i][1]; 
+    }
+    return newObj;
+}
+
+void freeObj3D(Obj3D * obj) {
+    free(obj->v);
+    free(obj->e);
+    free(obj);
+}
 
 // My functions --------------------------------------------------------- //
 
 // Convert the 3D points of mesh to 2d Points and render them
-fv3 vertexToWorld(fv3 vertex) {
-    // default transformations applied to everything (for now)
-    vertex.z += 5;
+fv3 vertexToWorld(fv3 vertex, fv3 worldPos) {
+    // worldPos is the position of the mesh in world space
+    vertex.x += worldPos.x;
+    vertex.y += worldPos.y;
+    vertex.z += worldPos.z;
+    vertex.x += moveAway -5;
     return vertex;
 }
 fv2 vertexToScreen(fv3 vertex) {
 
-    fv3 vertexWorld = vertexToWorld(vertex);
+    fv3 vertexWorld = vertexToWorld(vertex, (fv3) {0, 0, 5});
 
     float screenHeightWorld = tan(fov / 2) * 2;
     float pixelsPerWorldUnit = (float) SCREENHEIGHT / screenHeightWorld / vertexWorld.z;
@@ -101,19 +138,22 @@ fv2 vertexToScreen(fv3 vertex) {
     return pixelOffset;
 }
 
-void renderMesh(SDL_Renderer *renderer, fv3 *mesh, int meshSize, int (*edges)[2], int edgeCount){
-    fv2 mesh2D[meshSize];
-    for (int i = 0; i < meshSize; i++) {
+void renderMesh(SDL_Renderer *renderer, Obj3D * obj){
+    fv2 mesh2D[obj->vCount];
+    for (int i = 0; i < obj->vCount; i++) {
         // Vertext to Screen
-        mesh2D[i] = vertexToScreen(mesh[i]);
+        mesh2D[i] = vertexToScreen(obj->v[i]);
     }
-    for (int i = 0; i < edgeCount; i++) {
-        fv2 lineStart = {mesh2D[edges[i][0]].x , mesh2D[edges[i][0]].y};
-        fv2 lineEnd = {mesh2D[edges[i][1]].x , mesh2D[edges[i][1]].y};
+    for (int i = 0; i < obj->eCount; i+= 2) {
+        fv2 lineStart = {mesh2D[obj->e[i]].x , mesh2D[obj->e[i]].y};
+        fv2 lineEnd = {mesh2D[obj->e[i+1]].x , mesh2D[obj->e[i+1]].y};
         SDL_RenderLine(renderer, lineStart.x, lineStart.y, lineEnd.x, lineEnd.y);
     }
 
 }
+
+// Get rid of these later 
+static Obj3D *testCube;
 
 // SDL Functions -------------------------------------------------------- //
 
@@ -134,6 +174,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     }
 
     // Initialize MY stuff
+    testCube = createTestCube();
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
@@ -178,7 +219,9 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     // Render calls 
 
     /* SDL_RenderPoint(renderer, 10, 10); */
-    renderMesh(renderer, cubeV, sizeof(cubeV), cubeE, 12);
+    renderMesh(renderer, testCube);
+
+    moveAway += 0.005;
 
 
 
@@ -201,4 +244,5 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
     /* SDL will clean up the window/renderer for us. */
+    freeObj3D(testCube);
 }
