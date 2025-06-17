@@ -114,41 +114,51 @@ void freeObj3D(Obj3D * obj) {
 
 fv3 transformVector(fv3 ihat, fv3 jhat, fv3 khat, fv3 v) {
     fv3 i, j, k;
-    printf("\n-----\nv Vector : x : %f, y : %f, z : %f\n", v.x, v.y, v.z);
+    /* printf("\n-----\nv Vector : x : %f, y : %f, z : %f\n", v.x, v.y, v.z); */
     i = scalefv3(ihat, v.x);
-    printf("i Vector : x : %f, y : %f, z : %f\n", i.x, i.y, i.z);
+    /* printf("i Vector : x : %f, y : %f, z : %f\n", i.x, i.y, i.z); */
     j = scalefv3(jhat, v.y);
     k = scalefv3(khat, v.z);
 
     // Add the vectors together
     i = addfv3(i, j);
     i = addfv3(i, k);
-    printf("transformed Vector : x : %f, y : %f, z : %f\n", i.x, i.y, i.z);
+    /* printf("transformed Vector : x : %f, y : %f, z : %f\n", i.x, i.y, i.z); */
     return i;
 }
 
 BasisVectors getBasisVectors (double yaw, double pitch) {
-    BasisVectors out;
-    out.ihat = (fv3) {(float) cos(yaw), 0, (float) sin(yaw)};
-    out.jhat = (fv3) {0,1,0};
-    out.khat = (fv3) {(float) sin(yaw) * -1, 0, (float) cos(yaw)};
+    BasisVectors out,rot1,rot2;
+    // --- Yaw ---
+    rot1.ihat = (fv3) {(float) cos(yaw), 0, (float) sin(yaw)};
+    rot1.jhat = (fv3) {0,1,0};
+    rot1.khat = (fv3) {(float) sin(yaw) * -1, 0, (float) cos(yaw)};
+    // --- Pitch ---
+    rot2.ihat = (fv3) {1, 0, 0};
+    rot2.jhat = (fv3) {0, cos(pitch), sin(pitch) * -1};
+    rot2.khat = (fv3) {0, sin(pitch), cos(pitch)};
+
+    // --- Yaw and Pitch Combined ---
+    out.ihat = transformVector(rot1.ihat, rot1.jhat, rot1.khat, rot2.ihat);
+    out.jhat = transformVector(rot1.ihat, rot1.jhat, rot1.khat, rot2.jhat);
+    out.khat = transformVector(rot1.ihat, rot1.jhat, rot1.khat, rot2.khat);
     
     return out;
 }
 
 // Convert the 3D points of mesh to 2d Points and render them
-fv3 vertexToWorld(fv3 vertex, fv3 worldPos, double yaw) {
+fv3 vertexToWorld(fv3 vertex, fv3 worldPos, double yaw, double pitch) {
     // worldPos is the position of the mesh in world space
-    BasisVectors basis = getBasisVectors(yaw, 0);
+    BasisVectors basis = getBasisVectors(yaw, pitch);
     vertex = transformVector(basis.ihat, basis.jhat, basis.khat, vertex);
     vertex.x += worldPos.x;
     vertex.y += worldPos.y;
     vertex.z += worldPos.z;
     return vertex;
 }
-fv2 vertexToScreen(fv3 vertex, fv3 worldPos, double yaw) {
+fv2 vertexToScreen(fv3 vertex, fv3 worldPos, double yaw, double pitch) {
 
-    fv3 vertexWorld = vertexToWorld(vertex, worldPos, yaw);
+    fv3 vertexWorld = vertexToWorld(vertex, worldPos, yaw, pitch);
 
     float screenHeightWorld = tan(fov / 2) * 2;
     float pixelsPerWorldUnit = (float) SCREENHEIGHT / screenHeightWorld / vertexWorld.z;
@@ -163,7 +173,7 @@ void renderMesh(SDL_Renderer *renderer, Obj3D * obj){
     fv2 mesh2D[obj->vCount];
     for (int i = 0; i < obj->vCount; i++) {
         // Vertext to Screen
-        mesh2D[i] = vertexToScreen(obj->v[i], obj->pos, obj->yaw);
+        mesh2D[i] = vertexToScreen(obj->v[i], obj->pos, obj->yaw, obj->pitch);
     }
     for (int i = 0; i < obj->eCount; i+= 2) {
         fv2 lineStart = {mesh2D[obj->e[i]].x , mesh2D[obj->e[i]].y};
@@ -246,6 +256,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
     moveAway += 0.005;
     testCube->yaw += 0.01;
+    testCube->pitch += 0.02;
 
 
 
