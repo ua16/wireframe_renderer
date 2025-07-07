@@ -65,6 +65,23 @@ int cubeE[12][2] = {
     {0, 4}, {1, 5}, {2, 6}, {3, 7}   // Side lines
 };
 
+// Pyramid vertices
+
+fv3 pyramidV[5] = {
+
+    {-1, -1, -1},   // 0: back left of base
+    { 1, -1, -1},   // 1: back right of base
+    { 1, -1,  1},   // 2: front right of base
+    {-1, -1,  1},   // 3: front left of base
+    { 0,  1,  0}    // 4: apex (top point)
+};
+
+// Pyramid edges
+int pyramidE[8][2] = {
+    {0, 1}, {1, 2}, {2, 3}, {3, 0}, // base square
+    {0, 4}, {1, 4}, {2, 4}, {3, 4}  // sides to apex
+};
+
 float fov = 1.308997; // 75 degrees
 float focalLength = 0.63; // This gives us a screen length of about 1
 static float moveAway = 5;
@@ -104,6 +121,26 @@ Obj3D* createTestCube(fv3 position) {
     return newObj;
 }
 
+Obj3D* createTestPyramid(fv3 position) {
+    Obj3D* newObj = malloc(sizeof(Obj3D));
+
+    newObj->pos = position;
+
+    newObj->vCount = 5;
+    newObj->v = malloc(sizeof(fv3)*5);
+    for (int i = 0; i < 8; i++) {
+        newObj->v[i] = pyramidV[i];
+    }
+
+    newObj->eCount = 16;
+    newObj->e = malloc(sizeof(int)*16);
+    for (int i = 0; i < 8; i++){
+        newObj->e[i*2] = pyramidE[i][0]; 
+        newObj->e[i*2+1] = pyramidE[i][1]; 
+    }
+    return newObj;
+}
+
 void freeObj3D(Obj3D * obj) {
     free(obj->v);
     free(obj->e);
@@ -114,16 +151,13 @@ void freeObj3D(Obj3D * obj) {
 
 fv3 transformVector(fv3 ihat, fv3 jhat, fv3 khat, fv3 v) {
     fv3 i, j, k;
-    /* printf("\n-----\nv Vector : x : %f, y : %f, z : %f\n", v.x, v.y, v.z); */
     i = scalefv3(ihat, v.x);
-    /* printf("i Vector : x : %f, y : %f, z : %f\n", i.x, i.y, i.z); */
     j = scalefv3(jhat, v.y);
     k = scalefv3(khat, v.z);
 
     // Add the vectors together
     i = addfv3(i, j);
     i = addfv3(i, k);
-    /* printf("transformed Vector : x : %f, y : %f, z : %f\n", i.x, i.y, i.z); */
     return i;
 }
 
@@ -205,7 +239,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     }
 
     // Initialize MY stuff
-    testCube = createTestCube((fv3) {0, 0, 5});
+    testCube = createTestPyramid((fv3) {0, 0, 5});
     fv3 testV = scalefv3( (fv3){4, 1, 3}, 3);
     printf("test : x %f y %f z%f\n", testV.x, testV.y, testV.z);
 
@@ -256,7 +290,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
     moveAway += 0.005;
     testCube->yaw += 0.01;
-    testCube->pitch += 0.02;
+    testCube->pitch += 0.01;
 
 
 
